@@ -1,0 +1,267 @@
+$ .venv\Scripts\python -m pytest tests/ -v --tb=short 2>&1
+[exit 1]
+============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.0.3, pluggy-1.6.0 -- D:\works\reasonix\.venv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\works\reasonix
+configfile: pyproject.toml
+plugins: anyio-4.13.0, langsmith-0.8.7, asyncio-1.4.0, cov-7.1.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 12 items
+
+tests/test_api.py::TestHealth::test_health_returns_200 PASSED            [  8%]
+tests/test_api.py::TestDocuments::test_upload_no_file_400 PASSED         [ 16%]
+tests/test_api.py::TestDocuments::test_list_documents_empty PASSED       [ 25%]
+tests/test_api.py::TestDocuments::test_upload_txt_file PASSED            [ 33%]
+tests/test_api.py::TestQueries::test_ask_empty_question_400 FAILED       [ 41%]
+tests/test_api.py::TestQueries::test_ask_valid_request FAILED            [ 50%]
+tests/test_api.py::TestSchemas::test_health_response PASSED              [ 58%]
+tests/test_api.py::TestSchemas::test_ask_request_validation PASSED       [ 66%]
+tests/test_ingestion.py::TestIngestion::test_load_txt SKIPPED (OPENA...) [ 75%]
+tests/test_ingestion.py::TestIngestion::test_split_preserves_metadata SKIPPED [ 83%]
+tests/test_ingestion.py::TestUnit::test_config_defaults PASSED           [ 91%]
+tests/test_ingestion.py::TestUnit::test_supported_extensions PASSED      [100%]
+
+================================== FAILURES ===================================
+___________________ TestQueries.test_ask_empty_question_400 ___________________
+tests\test_api.py:62: in test_ask_empty_question_400
+    assert response.status_code == 400
+E   assert 422 == 400
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+_____________________ TestQueries.test_ask_valid_request ______________________
+tests\test_api.py:75: in test_ask_valid_request
+    assert response.status_code == 200
+E   assert 500 == 200
+E    +  where 500 = <Response [500 Internal Server Error]>.status_code
+---------------------------- Captured stdout call -----------------------------
+2026-05-31 15:57:09 [error    ] 未处理的异常                         error= method=POST path=/api/v1/queries/ask
+[31m┌─[0m[31m────────────────────[0m[31m [0m[1;31mTraceback [0m[1;2;31m(most recent call last)[0m[31m [0m[31m────────────────────[0m[31m─┐[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\chromadb\api\base_http_client.py: [31m│[0m
+[31m│[0m 132 in _raise_chroma_error                                                  [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m129 [0m[2m│   │   │   [0m[94mraise[0m chroma_error                                        [31m│[0m
+[31m│[0m   [2m130 [0m[2m│   │   [0m                                                              [31m│[0m
+[31m│[0m   [2m131 [0m[2m│   │   [0m[94mtry[0m:                                                          [31m│[0m
+[31m│[0m [31m> [0m132 [2m│   │   │   [0mresp.raise_for_status()                                   [31m│[0m
+[31m│[0m   [2m133 [0m[2m│   │   [0m[94mexcept[0m httpx.HTTPStatusError:                                 [31m│[0m
+[31m│[0m   [2m134 [0m[2m│   │   │   [0mtrace_id = resp.headers.get([33m"[0m[33mchroma-trace-id[0m[33m"[0m)            [31m│[0m
+[31m│[0m   [2m135 [0m[2m│   │   │   [0m[94mif[0m trace_id:                                              [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m─────────────────[0m[34m locals [0m[34m──────────────────[0m[34m─┐[0m                             [31m│[0m
+[31m│[0m [34m│[0m [3;33mchroma_error[0m[31m =[0m [3;35mNone[0m                         [34m│[0m                             [31m│[0m
+[31m│[0m [34m│[0m         [3;33mresp[0m[31m =[0m [1m<[0m[1;95mResponse[0m[39m [0m[1;39m[[0m[1;36m502[0m[39m Bad Gateway[0m[1;39m][0m[1m>[0m [34m│[0m                             [31m│[0m
+[31m│[0m [34m│[0m     [3;33mtrace_id[0m[31m =[0m [3;35mNone[0m                         [34m│[0m                             [31m│[0m
+[31m│[0m [34m└─────────────────────────────────────────────┘[0m                             [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\httpx\_models.py:829 in           [31m│[0m
+[31m│[0m raise_for_status                                                            [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m 826 [0m[2m│   │   [0m}                                                            [31m│[0m
+[31m│[0m   [2m 827 [0m[2m│   │   [0merror_type = error_types.get(status_class, [33m"[0m[33mInvalid status c[0m [31m│[0m
+[31m│[0m   [2m 828 [0m[2m│   │   [0mmessage = message.format([96mself[0m, error_type=error_type)        [31m│[0m
+[31m│[0m [31m> [0m 829 [2m│   │   [0m[1;4;94mraise[0m[1;4m HTTPStatusError(message, request=request, response=[0m[1;4;96msel[0m [31m│[0m
+[31m│[0m   [2m 830 [0m[2m│   [0m                                                                 [31m│[0m
+[31m│[0m   [2m 831 [0m[2m│   [0m[94mdef[0m[90m [0m[92mjson[0m([96mself[0m, **kwargs: typing.Any) -> typing.Any:              [31m│[0m
+[31m│[0m   [2m 832 [0m[2m│   │   [0m[94mreturn[0m jsonlib.loads([96mself[0m.content, **kwargs)                 [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m───────────────────────────────[0m[34m locals [0m[34m────────────────────────────────[0m[34m─┐[0m [31m│[0m
+[31m│[0m [34m│[0m   [3;33merror_type[0m[31m =[0m [32m'Server error'[0m                                           [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m  [3;33merror_types[0m[31m =[0m [1m{[0m                                                        [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [2;32m│   [0m[1;36m1[0m: [32m'Informational response'[0m,                         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [2;32m│   [0m[1;36m3[0m: [32m'Redirect response'[0m,                              [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [2;32m│   [0m[1;36m4[0m: [32m'Client error'[0m,                                   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [2;32m│   [0m[1;36m5[0m: [32m'Server error'[0m                                    [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [1m}[0m                                                        [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m      [3;33mmessage[0m[31m =[0m [32m"Server error '502 Bad Gateway' for url [0m                 [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [32m'http://localhost:8001/api/v2/auth/identi"[0m+[1;36m92[0m            [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m      [3;33mrequest[0m[31m =[0m [1m<[0m[1;35mRequest[0m[1;39m([0m[32m'GET'[0m[39m, [0m                                         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [32m'http://localhost:8001/api/v2/auth/identity'[0m[1;39m)[0m[1m>[0m           [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m         [3;33mself[0m[31m =[0m [1m<[0m[1;95mResponse[0m[39m [0m[1;39m[[0m[1;36m502[0m[39m Bad Gateway[0m[1;39m][0m[1m>[0m                             [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m [3;33mstatus_class[0m[31m =[0m [1;36m5[0m                                                        [34m│[0m [31m│[0m
+[31m│[0m [34m└─────────────────────────────────────────────────────────────────────────┘[0m [31m│[0m
+[31m└─────────────────────────────────────────────────────────────────────────────┘[0m
+[1;91mHTTPStatusError: [0mServer error [32m'502 Bad Gateway'[0m for url 
+[32m'http://localhost:8001/api/v2/auth/identity'[0m
+For more information check: 
+[4;94mhttps://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502[0m
+
+[3mDuring handling of the above exception, another exception occurred:[0m
+
+[31m┌─[0m[31m────────────────────[0m[31m [0m[1;31mTraceback [0m[1;2;31m(most recent call last)[0m[31m [0m[31m────────────────────[0m[31m─┐[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\chromadb\api\client.py:134 in     [31m│[0m
+[31m│[0m get_user_identity                                                           [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m131 [0m[2m│   [0m[1;95m@override[0m                                                         [31m│[0m
+[31m│[0m   [2m132 [0m[2m│   [0m[94mdef[0m[90m [0m[92mget_user_identity[0m([96mself[0m) -> UserIdentity:                      [31m│[0m
+[31m│[0m   [2m133 [0m[2m│   │   [0m[94mtry[0m:                                                          [31m│[0m
+[31m│[0m [31m> [0m134 [2m│   │   │   [0m[94mreturn[0m [96mself[0m._server.get_user_identity()                   [31m│[0m
+[31m│[0m   [2m135 [0m[2m│   │   [0m[94mexcept[0m httpx.ConnectError:                                    [31m│[0m
+[31m│[0m   [2m136 [0m[2m│   │   │   [0m[94mraise[0m [96mValueError[0m(                                         [31m│[0m
+[31m│[0m   [2m137 [0m[2m│   │   │   │   [0m[33m"[0m[33mCould not connect to a Chroma server. Are you sure i[0m [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m────────────────────────────[0m[34m locals [0m[34m────────────────────────────[0m[34m─┐[0m        [31m│[0m
+[31m│[0m [34m│[0m [3;33mself[0m[31m =[0m [1m<[0m[1;95mchromadb.api.client.Client[0m[39m object at [0m[1;36m0x000002692488D610[0m[1m>[0m [34m│[0m        [31m│[0m
+[31m│[0m [34m└──────────────────────────────────────────────────────────────────┘[0m        [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\chromadb\telemetry\opentelemetry\ [31m│[0m
+[31m│[0m __init__.py:150 in wrapper                                                  [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m147 [0m[2m│   │   │   [0m[94mdef[0m[90m [0m[92mwrapper[0m(*args, **kwargs):  [2m# type: ignore[no-untyped-[0m [31m│[0m
+[31m│[0m   [2m148 [0m[2m│   │   │   │   [0m[94mglobal[0m tracer, granularity                            [31m│[0m
+[31m│[0m   [2m149 [0m[2m│   │   │   │   [0m[94mif[0m trace_granularity < granularity:                   [31m│[0m
+[31m│[0m [31m> [0m150 [2m│   │   │   │   │   [0m[94mreturn[0m [1;4mf(*args, **kwargs)[0m                         [31m│[0m
+[31m│[0m   [2m151 [0m[2m│   │   │   │   [0m[94mif[0m [95mnot[0m tracer:                                        [31m│[0m
+[31m│[0m   [2m152 [0m[2m│   │   │   │   │   [0m[94mreturn[0m f(*args, **kwargs)                         [31m│[0m
+[31m│[0m   [2m153 [0m[2m│   │   │   │   [0m[94mwith[0m tracer.start_as_current_span(trace_name, attribu [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m───────────────────────────────[0m[34m locals [0m[34m────────────────────────────────[0m[34m─┐[0m [31m│[0m
+[31m│[0m [34m│[0m              [3;33margs[0m[31m =[0m [1m([0m                                                   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                     [2;32m│   [0m[1m<[0m[1;95mchromadb.api.fastapi.FastAPI[0m[39m object at [0m        [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                     [1;36m0x0000026924B1A8D0[0m[1m>[0m,                                [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                     [1m)[0m                                                   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m        [3;33mattributes[0m[31m =[0m [3;35mNone[0m                                                [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m            [3;33mkwargs[0m[31m =[0m [1m{[0m[1m}[0m                                                  [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m [3;33mtrace_granularity[0m[31m =[0m [1m<[0m[1;95mOpenTelemetryGranularity.OPERATION:[0m[39m [0m[32m'operation'[0m[1m>[0m   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m        [3;33mtrace_name[0m[31m =[0m [32m'FastAPI.get_user_identity'[0m                         [34m│[0m [31m│[0m
+[31m│[0m [34m└─────────────────────────────────────────────────────────────────────────┘[0m [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\chromadb\api\fastapi.py:226 in    [31m│[0m
+[31m│[0m get_user_identity                                                           [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m223 [0m[2m│   [0m[1;95m@trace_method[0m([33m"[0m[33mFastAPI.get_user_identity[0m[33m"[0m, OpenTelemetryGranulari [31m│[0m
+[31m│[0m   [2m224 [0m[2m│   [0m[1;95m@override[0m                                                         [31m│[0m
+[31m│[0m   [2m225 [0m[2m│   [0m[94mdef[0m[90m [0m[92mget_user_identity[0m([96mself[0m) -> UserIdentity:                      [31m│[0m
+[31m│[0m [31m> [0m226 [2m│   │   [0m[94mreturn[0m UserIdentity(**[1;4;96mself[0m[1;4m._make_request([0m[1;4;33m"[0m[1;4;33mget[0m[1;4;33m"[0m[1;4m, [0m[1;4;33m"[0m[1;4;33m/auth/identi[0m [31m│[0m
+[31m│[0m   [2m227 [0m[2m│   [0m                                                                  [31m│[0m
+[31m│[0m   [2m228 [0m[2m│   [0m[1;95m@trace_method[0m([33m"[0m[33mFastAPI.list_collections[0m[33m"[0m, OpenTelemetryGranularit [31m│[0m
+[31m│[0m   [2m229 [0m[2m│   [0m[1;95m@override[0m                                                         [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m─────────────────────────────[0m[34m locals [0m[34m─────────────────────────────[0m[34m─┐[0m      [31m│[0m
+[31m│[0m [34m│[0m [3;33mself[0m[31m =[0m [1m<[0m[1;95mchromadb.api.fastapi.FastAPI[0m[39m object at [0m[1;36m0x0000026924B1A8D0[0m[1m>[0m [34m│[0m      [31m│[0m
+[31m│[0m [34m└────────────────────────────────────────────────────────────────────┘[0m      [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\chromadb\api\fastapi.py:132 in    [31m│[0m
+[31m│[0m _make_request                                                               [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m129 [0m[2m│   │   [0murl = [96mself[0m._api_url + escaped_path                            [31m│[0m
+[31m│[0m   [2m130 [0m[2m│   │   [0m                                                              [31m│[0m
+[31m│[0m   [2m131 [0m[2m│   │   [0mresponse = [96mself[0m._session.request(method, url, **cast(Any, kwa [31m│[0m
+[31m│[0m [31m> [0m132 [2m│   │   [0m[1;4mBaseHTTPClient._raise_chroma_error(response)[0m                  [31m│[0m
+[31m│[0m   [2m133 [0m[2m│   │   [0m[94mreturn[0m orjson.loads(response.text)                            [31m│[0m
+[31m│[0m   [2m134 [0m[2m│   [0m                                                                  [31m│[0m
+[31m│[0m   [2m135 [0m[2m│   [0m[1;95m@trace_method[0m([33m"[0m[33mFastAPI.heartbeat[0m[33m"[0m, OpenTelemetryGranularity.OPERA [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m───────────────────────────────[0m[34m locals [0m[34m────────────────────────────────[0m[34m─┐[0m [31m│[0m
+[31m│[0m [34m│[0m [3;33mescaped_path[0m[31m =[0m [32m'/auth/identity'[0m                                         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m       [3;33mkwargs[0m[31m =[0m [1m{[0m[1m}[0m                                                       [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m       [3;33mmethod[0m[31m =[0m [32m'get'[0m                                                    [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m         [3;33mpath[0m[31m =[0m [32m'/auth/identity'[0m                                         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m     [3;33mresponse[0m[31m =[0m [1m<[0m[1;95mResponse[0m[39m [0m[1;39m[[0m[1;36m502[0m[39m Bad Gateway[0m[1;39m][0m[1m>[0m                             [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m         [3;33mself[0m[31m =[0m [1m<[0m[1;95mchromadb.api.fastapi.FastAPI[0m[39m object at [0m                 [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                [1;36m0x0000026924B1A8D0[0m[1m>[0m                                      [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m          [3;33murl[0m[31m =[0m [32m'http://localhost:8001/api/v2/auth/identity'[0m             [34m│[0m [31m│[0m
+[31m│[0m [34m└─────────────────────────────────────────────────────────────────────────┘[0m [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\chromadb\api\base_http_client.py: [31m│[0m
+[31m│[0m 137 in _raise_chroma_error                                                  [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m134 [0m[2m│   │   │   [0mtrace_id = resp.headers.get([33m"[0m[33mchroma-trace-id[0m[33m"[0m)            [31m│[0m
+[31m│[0m   [2m135 [0m[2m│   │   │   [0m[94mif[0m trace_id:                                              [31m│[0m
+[31m│[0m   [2m136 [0m[2m│   │   │   │   [0m[94mraise[0m [96mException[0m([33mf[0m[33m"[0m[33m{[0mresp.text[33m}[0m[33m (trace ID: [0m[33m{[0mtrace_id[33m}[0m[33m)[0m[33m"[0m [31m│[0m
+[31m│[0m [31m> [0m137 [2m│   │   │   [0m[1;4;94mraise[0m[1;4m ([0m[1;4;96mException[0m[1;4m(resp.text))[0m                              [31m│[0m
+[31m│[0m   [2m138 [0m[2m│   [0m                                                                  [31m│[0m
+[31m│[0m   [2m139 [0m[2m│   [0m[94mdef[0m[90m [0m[92mget_request_headers[0m([96mself[0m) -> Mapping[[96mstr[0m, [96mstr[0m]:               [31m│[0m
+[31m│[0m   [2m140 [0m[2;90m│   │   [0m[33m"""Return headers used for HTTP requests."""[0m                  [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m─────────────────[0m[34m locals [0m[34m──────────────────[0m[34m─┐[0m                             [31m│[0m
+[31m│[0m [34m│[0m [3;33mchroma_error[0m[31m =[0m [3;35mNone[0m                         [34m│[0m                             [31m│[0m
+[31m│[0m [34m│[0m         [3;33mresp[0m[31m =[0m [1m<[0m[1;95mResponse[0m[39m [0m[1;39m[[0m[1;36m502[0m[39m Bad Gateway[0m[1;39m][0m[1m>[0m [34m│[0m                             [31m│[0m
+[31m│[0m [34m│[0m     [3;33mtrace_id[0m[31m =[0m [3;35mNone[0m                         [34m│[0m                             [31m│[0m
+[31m│[0m [34m└─────────────────────────────────────────────┘[0m                             [31m│[0m
+[31m└─────────────────────────────────────────────────────────────────────────────┘[0m
+[1;91mException[0m
+
+[3mThe above exception was the direct cause of the following exception:[0m
+
+[31m┌─[0m[31m────────────────────[0m[31m [0m[1;31mTraceback [0m[1;2;31m(most recent call last)[0m[31m [0m[31m────────────────────[0m[31m─┐[0m
+[31m│[0m D:\works\reasonix\app\middleware\error_handler.py:29 in dispatch            [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m26 [0m[2m│   [0m                                                                   [31m│[0m
+[31m│[0m   [2m27 [0m[2m│   [0m[94masync[0m [94mdef[0m[90m [0m[92mdispatch[0m([96mself[0m, request: Request, call_next):             [31m│[0m
+[31m│[0m   [2m28 [0m[2m│   │   [0m[94mtry[0m:                                                           [31m│[0m
+[31m│[0m [31m> [0m29 [2m│   │   │   [0mresponse = [94mawait[0m call_next(request)                        [31m│[0m
+[31m│[0m   [2m30 [0m[2m│   │   │   [0m[94mreturn[0m response                                            [31m│[0m
+[31m│[0m   [2m31 [0m[2m│   │   [0m[94mexcept[0m [96mException[0m [94mas[0m exc:                                       [31m│[0m
+[31m│[0m   [2m32 [0m[2m│   │   │   [0m[2m# 记录完整异常信息（包括堆栈），仅向客户端返回通用错误消息[0m [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m───────────────────────────────[0m[34m locals [0m[34m────────────────────────────────[0m[34m─┐[0m [31m│[0m
+[31m│[0m [34m│[0m     [3;33mexc[0m[31m =[0m [1;35mValueError[0m[1m([0m[32m''[0m[1m)[0m                                                [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m [3;33mrequest[0m[31m =[0m [1m<[0m[1;95mstarlette.middleware.base._CachedRequest[0m[39m object at [0m          [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m           [1;36m0x000002692488F690[0m[1m>[0m                                           [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m    [3;33mself[0m[31m =[0m [1m<[0m[1;95mapp.middleware.error_handler.ErrorHandlingMiddleware[0m[39m object [0m [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m           [39mat [0m[1;36m0x000002692483F8D0[0m[1m>[0m                                        [34m│[0m [31m│[0m
+[31m│[0m [34m└─────────────────────────────────────────────────────────────────────────┘[0m [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m D:\works\reasonix\.venv\Lib\site-packages\starlette\middleware\base.py:168  [31m│[0m
+[31m│[0m in call_next                                                                [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m   [2m165 [0m[2m│   │   │   │   │   [0m[2m# propagated as a cause with the reraise. This is[0m [31m│[0m
+[31m│[0m   [2m166 [0m[2m│   │   │   │   │   [0m[2m# to prevent `anyio.EndOfStream` from polluting t[0m [31m│[0m
+[31m│[0m   [2m167 [0m[2m│   │   │   │   │   [0m[2m# context.[0m                                        [31m│[0m
+[31m│[0m [31m> [0m168 [2m│   │   │   │   │   [0m[1;4;94mraise[0m[1;4m app_exc [0m[1;4;94mfrom[0m[1;4;90m [0m[1;4;96mapp_exc[0m[1;4;96m.[0m[1;4;96m__cause__[0m[1;4m [0m[1;4;95mor[0m[1;4m app_exc._[0m [31m│[0m
+[31m│[0m   [2m169 [0m[2m│   │   │   │   [0m[94mraise[0m [96mRuntimeError[0m([33m"[0m[33mNo response returned.[0m[33m"[0m)           [31m│[0m
+[31m│[0m   [2m170 [0m[2m│   │   │   [0m                                                          [31m│[0m
+[31m│[0m   [2m171 [0m[2m│   │   │   [0m[94massert[0m message[[33m"[0m[33mtype[0m[33m"[0m] == [33m"[0m[33mhttp.response.start[0m[33m"[0m           [31m│[0m
+[31m│[0m                                                                             [31m│[0m
+[31m│[0m [34m┌─[0m[34m───────────────────────────────[0m[34m locals [0m[34m────────────────────────────────[0m[34m─┐[0m [31m│[0m
+[31m│[0m [34m│[0m                  [3;33mapp_exc[0m[31m =[0m [1;35mValueError[0m[1m([0m[32m''[0m[1m)[0m                               [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m [3;33mexception_already_raised[0m[31m =[0m [3;92mTrue[0m                                         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m              [3;33mrecv_stream[0m[31m =[0m [1;35mMemoryObjectReceiveStream[0m[1m([0m                   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[33m_state[0m=[1;35m_MemoryObjectStreamState[0m[1m([0m         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[33mmax_buffer_size[0m=[1;36m0[0m,                   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[33mbuffer[0m=[1;35mdeque[0m[1m([0m[1m)[0m,                      [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[33mopen_send_channels[0m=[1;36m0[0m,                [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[33mopen_receive_channels[0m=[1;36m1[0m,             [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[33mwaiting_receivers[0m=[1;35mOrderedDict[0m[1m([0m[1m)[0m,     [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[33mwaiting_senders[0m=[1;35mOrderedDict[0m[1m([0m[1m)[0m        [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[1m)[0m,                                       [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[33m_closed[0m=[3;91mFalse[0m                            [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [1m)[0m                                            [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                  [3;33mrequest[0m[31m =[0m [1m<[0m[1;95mstarlette.middleware.base._CachedRequest[0m[39m [0m   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [39mobject at [0m[1;36m0x000002692488F690[0m[1m>[0m                [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m            [3;33mresponse_sent[0m[31m =[0m [1m<[0m[1;95manyio._backends._asyncio.Event[0m[39m object at [0m   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [1;36m0x000002692488F6D0[0m[1m>[0m                          [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                    [3;33mscope[0m[31m =[0m [1m{[0m                                            [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'type'[0m: [32m'http'[0m,                          [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'http_version'[0m: [32m'1.1'[0m,                   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'method'[0m: [32m'POST'[0m,                        [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'path'[0m: [32m'/api/v1/queries/ask'[0m,           [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'raw_path'[0m: [32mb'/api/v1/queries/ask'[0m,      [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'root_path'[0m: [32m''[0m,                         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'scheme'[0m: [32m'http'[0m,                        [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'query_string'[0m: [32mb''[0m,                     [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'headers'[0m: [1m[[0m                             [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m([0m[32mb'host'[0m, [32mb'testserver'[0m[1m)[0m,            [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m([0m[32mb'accept'[0m, [32mb'*/*'[0m[1m)[0m,                 [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m([0m                                    [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   │   [0m[32mb'accept-encoding'[0m,              [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   │   [0m[32mb'gzip, deflate, zstd'[0m           [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m)[0m,                                   [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m([0m[32mb'connection'[0m, [32mb'keep-alive'[0m[1m)[0m,      [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m([0m[32mb'user-agent'[0m, [32mb'testclient'[0m[1m)[0m,      [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m([0m[32mb'content-length'[0m, [32mb'79'[0m[1m)[0m,          [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m([0m                                    [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   │   [0m[32mb'content-type'[0m,                 [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   │   [0m[32mb'application/json'[0m              [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[1m)[0m                                    [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[1m][0m,                                       [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[32m'client'[0m: [1m([0m[32m'testclient'[0m, [1;36m50000[0m[1m)[0m,         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[33m...[0m +[1;36m12[0m                                  [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [1m}[0m                                            [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                     [3;33mself[0m[31m =[0m [1m<[0m[1;95mapp.middleware.error_handler.ErrorHandling…[0m [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [39mobject at [0m[1;36m0x000002692483F8D0[0m[1m>[0m                [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m              [3;33msend_stream[0m[31m =[0m [1;35mMemoryObjectSendStream[0m[1m([0m                      [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   [0m[33m_state[0m=[1;35m_MemoryObjectStreamState[0m[1m([0m         [34m│[0m [31m│[0m
+[31m│[0m [34m│[0m                            [2;32m│   │   [0m[33mmax_buffer_size[0m=[1;36m0[0m,                   
+
+[… truncated 162256 chars …]
