@@ -2,7 +2,8 @@
 
 支持格式：PDF、DOCX、TXT、Markdown、HTML、CSV。
 
-使用 Unstructured 库作为主解析引擎，LangChain 社区加载器作为备选。
+PDF 使用 PyMuPDF (fitz) 解析，无需外部依赖。
+其他格式使用 LangChain 社区加载器。
 """
 
 from __future__ import annotations
@@ -16,17 +17,51 @@ from langchain_community.document_loaders import (
     TextLoader,
     UnstructuredHTMLLoader,
     UnstructuredMarkdownLoader,
-    UnstructuredPDFLoader,
 )
 
 from app.core.logging_config import get_logger
 
 logger = get_logger(__name__)
 
-# 文件扩展名 → 加载器类的注册表
-# 注册新格式时在此处添加映射即可，无需修改业务代码
+
+class PyMuPDFLoader:
+    """使用 PyMuPDF (fitz) 加载 PDF 文档。
+
+    纯 Python 实现，无需 poppler 等外部依赖。
+    支持提取文本、保留页面结构。
+    """
+
+    def __init__(self, file_path: str):
+        self.file_path = file_path
+
+    def load(self) -> list[LCDocument]:
+        """加载 PDF 并返回 Document 列表（每页一个）。"""
+        try:
+            import fitz
+        except ImportError as exc:
+            raise ImportError(
+                "PyMuPDF 未安装。请运行: pip install pymupdf"
+            ) from exc
+
+        docs: list[LCDocument] = []
+        with fitz.open(self.file_path) as pdf:
+            for page_num, page in enumerate(pdf, start=1):
+                text = page.get_text()
+                if text.strip():
+                    doc = LCDocument(
+                        page_content=text,
+                        metadata={
+                            "page": page_num,
+                            "total_pages": len(pdf),
+                        },
+                    )
+                    docs.append(doc)
+
+        return docs
+
+
 LOADER_REGISTRY: dict[str, type] = {
-    ".pdf": UnstructuredPDFLoader,
+    ".pdf": PyMuPDFLoader,
     ".docx": Docx2txtLoader,
     ".txt": TextLoader,
     ".md": UnstructuredMarkdownLoader,
@@ -73,13 +108,11 @@ def load_document(file_path: str | Path) -> list[LCDocument]:
     loader = loader_cls(str(path))
     docs = loader.load()
 
-    # 将文件级别的元数据注入到每一个 Document 中
-    # 这些元数据会贯穿整个管道，最终可用于过滤和引用追踪
     file_meta = {
-        "source": str(path),            # 源文件绝对路径
-        "filename": path.name,          # 文件名
-        "file_type": ext.lstrip("."),   # 文件类型（不含点）
-        "file_size_bytes": path.stat().st_size,  # 文件大小
+        "source": str(path),
+        "filename": path.name,
+        "file_type": ext.lstrip("."),
+        "file_size_bytes": path.stat().st_size,
     }
     for doc in docs:
         doc.metadata.update(file_meta)

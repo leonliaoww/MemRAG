@@ -36,9 +36,9 @@ class DocumentResponse(BaseModel):
     chunk_count: int
     status: DocumentStatus
     error_message: str | None = None
-    created_at: datetime
+    created_at: datetime | None = None
 
-    model_config = {"from_attributes": True}  # 支持从 ORM 模型直接转换
+    model_config = {"from_attributes": True}
 
 
 class DocumentListResponse(BaseModel):
@@ -59,8 +59,8 @@ class KnowledgeBaseResponse(BaseModel):
     tenant_id: uuid.UUID
     name: str
     description: str | None = None
-    chroma_collection: str     # 对应的 Chroma collection 名称
-    document_count: int = 0    # 知识库中的文档数量
-    created_at: datetime
+    chroma_collection: str
+    document_count: int = 0
+    created_at: datetime | None = None
 
     model_config = {"from_attributes": True}

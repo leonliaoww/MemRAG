@@ -4,3 +4,6 @@
 
 # IDE 配置
 .idea/
+
+# 本地模型文件
+/models/

@@ -11,8 +11,7 @@ class HealthResponse(BaseModel):
     """健康检查响应 — 用于负载均衡器和监控探针。"""
     status: str = "ok"
     version: str
-    chroma_connected: bool   # Chroma 向量库连接状态
-    redis_connected: bool    # Redis 连接状态
+    chroma_connected: bool   # Chroma 向量库（本地持久化）连接状态
 
 
 class ErrorResponse(BaseModel):

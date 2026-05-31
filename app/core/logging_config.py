@@ -24,23 +24,16 @@ def setup_logging() -> None:
     生产模式（DEBUG=false）：
         - JSON Lines 输出，方便日志聚合和搜索
     """
-    # 两组模式共享的基础处理器链
-    shared_processors: list = [
-        structlog.contextvars.merge_contextvars,     # 合并上下文变量
-        structlog.stdlib.add_logger_name,            # 添加 logger 名称
-        structlog.stdlib.add_log_level,              # 添加日志级别
-        structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"), # ISO 8601 时间戳
-        structlog.processors.StackInfoRenderer(),    # 堆栈信息
-        structlog.processors.format_exc_info,        # 异常信息格式化
-        structlog.processors.UnicodeDecoder(),       # Unicode 解码
-    ]
-
     if settings.DEBUG:
-        # 开发环境：彩色控制台输出
+        # 开发环境：彩色控制台输出（使用 structlog 原生处理器，避免 PrintLogger 兼容性问题）
         structlog.configure(
             processors=[
-                *shared_processors,
+                structlog.contextvars.merge_contextvars,
+                structlog.processors.add_log_level,
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.processors.StackInfoRenderer(),
+                structlog.processors.format_exc_info,
+                structlog.processors.UnicodeDecoder(),
                 structlog.dev.ConsoleRenderer(),
             ],
             wrapper_class=structlog.stdlib.BoundLogger,
@@ -52,7 +45,14 @@ def setup_logging() -> None:
         # 生产环境：JSON Lines 输出
         structlog.configure(
             processors=[
-                *shared_processors,
+                structlog.contextvars.merge_contextvars,
+                structlog.stdlib.add_logger_name,
+                structlog.stdlib.add_log_level,
+                structlog.stdlib.PositionalArgumentsFormatter(),
+                structlog.processors.TimeStamper(fmt="iso"),
+                structlog.processors.StackInfoRenderer(),
+                structlog.processors.format_exc_info,
+                structlog.processors.UnicodeDecoder(),
                 structlog.processors.dict_tracebacks,
                 structlog.processors.JSONRenderer(),
             ],

@@ -1,19 +1,18 @@
-"""Chroma 向量库封装 — collection 管理和文档操作。
+"""Chroma 向量库封装 — 本地持久化模式。
 
-通过 LangChain 的 Chroma 集成实现，支持：
-- 多知识库隔离（每个知识库对应一个 collection）
-- 异步文档添加和删除
-- 相似度搜索（带分数）
+数据以 SQLite3 + Parquet 格式存储在本地磁盘（CHROMA_PERSIST_DIR），
+无需启动独立的 Chroma 服务。
+适合单机部署场景。多机部署时可切换为 HttpClient 模式连接 Chroma 集群。
 
-Chroma 部署模式：
-    - 开发环境：Docker 容器（docker compose up chroma）
-    - 生产环境：独立 Chroma 服务集群
+支持：
+    - 多知识库隔离（每个知识库对应一个 collection）
+    - 异步文档添加和删除
+    - 相似度搜索（带分数）
 """
 
 from __future__ import annotations
 
 import uuid
-from typing import Sequence
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
@@ -26,28 +25,27 @@ from app.engine.ingestion.embedder import get_embeddings
 
 logger = get_logger(__name__)
 
-# 全局 Chroma HTTP 客户端（单例）
+# 全局 Chroma 持久化客户端（单例）
 _chroma_client: chromadb.ClientAPI | None = None
 # 向量库缓存 — 按 collection 名称缓存 LangChain Chroma 实例
 _vector_stores: dict[str, Chroma] = {}
 
 
 def _get_chroma_client() -> chromadb.ClientAPI:
-    """获取 Chroma HTTP 客户端单例。
+    """获取 Chroma PersistentClient 单例。
 
-    首次调用时创建 HTTP 连接，后续调用复用。
+    数据持久化到 CHROMA_PERSIST_DIR 目录。
+    首次调用时创建客户端，后续调用复用。
     """
     global _chroma_client
     if _chroma_client is None:
-        _chroma_client = chromadb.HttpClient(
-            host=settings.CHROMA_HOST,
-            port=settings.CHROMA_PORT,
+        _chroma_client = chromadb.PersistentClient(
+            path=settings.CHROMA_PERSIST_DIR,
             settings=ChromaSettings(anonymized_telemetry=False),
         )
         logger.info(
-            "Chroma 客户端初始化完成",
-            host=settings.CHROMA_HOST,
-            port=settings.CHROMA_PORT,
+            "Chroma 本地客户端已初始化",
+            persist_dir=settings.CHROMA_PERSIST_DIR,
         )
     return _chroma_client
 
@@ -63,7 +61,7 @@ def get_vector_store(
         collection_name: Chroma collection 名称。默认使用配置中的 collection。
 
     Returns:
-        绑定到 OpenAI embeddings 的 LangChain Chroma 实例。
+        绑定到嵌入模型的 LangChain Chroma 实例。
     """
     name = collection_name or settings.CHROMA_COLLECTION_NAME
 
@@ -99,7 +97,7 @@ def create_collection(collection_name: str) -> Chroma:
     try:
         client.delete_collection(collection_name)
     except Exception:
-        pass  # collection 不存在，忽略错误
+        pass
 
     store = Chroma(
         client=client,
@@ -133,10 +131,9 @@ async def add_documents(
     documents: list[LCDocument],
     collection_name: str | None = None,
 ) -> list[str]:
-    """将文档添加到向量库（自动嵌入 + 存储）。
+    """将文档添加到向量库（自动嵌入 + 存储到本地磁盘）。
 
-    每个文档分配一个 UUID 作为 Chroma 中的唯一 ID，
-    便于后续精确删除和引用追踪。
+    每个文档分配一个 UUID 作为 Chroma 中的唯一 ID。
 
     Args:
         documents: 已切分并带元数据的 LangChain Document 列表。
@@ -149,7 +146,7 @@ async def add_documents(
     ids = [str(uuid.uuid4()) for _ in documents]
 
     await store.aadd_documents(documents, ids=ids)
-    logger.info("文档已存入 Chroma", count=len(documents), collection=collection_name)
+    logger.info("文档已存入 Chroma（本地持久化）", count=len(documents), collection=collection_name)
     return ids
 
 
@@ -159,13 +156,13 @@ async def search_similar(
     collection_name: str | None = None,
     filter_metadata: dict | None = None,
 ) -> list[LCDocument]:
-    """向量相似度搜索 — 基于余弦距离。
+    """向量相似度搜索。
 
     返回的每个文档的 metadata 中会自动附加 `relevance_score` 字段。
 
     Args:
         query: 自然语言查询字符串。
-        top_k: 返回结果数量，默认使用配置值。
+        top_k: 返回结果数量。
         collection_name: 搜索的目标 collection。
         filter_metadata: 可选的元数据过滤条件（如 {"file_type": "pdf"}）。
 
@@ -175,12 +172,10 @@ async def search_similar(
     store = get_vector_store(collection_name)
     k = top_k or settings.RETRIEVAL_TOP_K
 
-    # similarity_search_with_relevance_scores 返回 (doc, score) 元组
     results = await store.asimilarity_search_with_relevance_scores(
         query, k=k, filter=filter_metadata
     )
 
-    # 将相似度分数附加到每个文档的元数据中
     docs: list[LCDocument] = []
     for doc, score in results:
         doc.metadata["relevance_score"] = score
