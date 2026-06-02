@@ -145,7 +145,11 @@ async def add_documents(
     store = get_vector_store(collection_name)
     ids = [str(uuid.uuid4()) for _ in documents]
 
-    await store.aadd_documents(documents, ids=ids)
+    # 过滤复杂的 metadata（Chroma 只支持 str, int, float, bool, list, None）
+    from langchain_community.vectorstores.utils import filter_complex_metadata
+    filtered_docs = filter_complex_metadata(documents)
+
+    await store.aadd_documents(filtered_docs, ids=ids)
     logger.info("文档已存入 Chroma（本地持久化）", count=len(documents), collection=collection_name)
     return ids
 

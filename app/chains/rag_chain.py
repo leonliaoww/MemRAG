@@ -22,7 +22,8 @@ from app.core.config import settings
 from app.core.logging_config import get_logger
 from app.engine.generation.citations import build_citations, format_context
 from app.engine.generation.llm import generate, generate_stream
-from app.engine.generation.prompts import RAG_PROMPT
+from app.engine.generation.llm import get_singleton_llm
+from app.engine.generation.prompts import QUERY_REWRITE_PROMPT, RAG_PROMPT
 from app.engine.retrieval.hybrid import hybrid_search
 from app.engine.retrieval.reranker import rerank
 from app.engine.retrieval.vector_store import search_similar
@@ -63,13 +64,50 @@ async def run_rag(
     """
     k = top_k or settings.RETRIEVAL_TOP_K
 
-    # ── 第1步：检索 ──
-    if retrieval_mode == RetrievalMode.HYBRID and settings.HYBRID_SEARCH_ENABLED:
-        retrieved = await hybrid_search(question, top_k=k, collection_name=collection_name)
-        logger.debug("RAG检索", mode="hybrid", docs=len(retrieved))
+    # ── 第0步：查询改写 ──
+    # 将用户问题改写为更适合检索的形式
+    search_query = question
+    if settings.QUERY_REWRITE_ENABLED:
+        from langchain_core.output_parsers import StrOutputParser
+        llm = get_singleton_llm()
+        rewrite_chain = QUERY_REWRITE_PROMPT | llm | StrOutputParser()
+        search_query = await rewrite_chain.ainvoke({"chat_history": "", "question": question})
+        logger.debug("查询改写", original=question, rewritten=search_query)
+
+    # ── 第1步：检索（带低置信度二次检索）──
+    if settings.RE_RETRIEVAL_ENABLED:
+        from app.engine.retrieval.re_retrieval import retrieve_with_fallback
+
+        re_result = await retrieve_with_fallback(
+            question=search_query,
+            collection_name=collection_name,
+            top_k=k,
+            retrieval_mode=retrieval_mode,
+        )
+        retrieved = re_result.documents
+        if re_result.low_confidence:
+            logger.warning(
+                "RAG 低置信度降级",
+                rounds=re_result.rounds_used,
+                strategies=re_result.strategy_path,
+            )
+        logger.debug(
+            "RAG检索（二次检索）",
+            docs=len(retrieved),
+            rounds=re_result.rounds_used,
+            strategies=re_result.strategy_path,
+        )
     else:
-        retrieved = await search_similar(question, top_k=k, collection_name=collection_name)
-        logger.debug("RAG检索", mode="vector", docs=len(retrieved))
+        if retrieval_mode == RetrievalMode.HYBRID and settings.HYBRID_SEARCH_ENABLED:
+            retrieved = await hybrid_search(search_query, top_k=k, collection_name=collection_name)
+            logger.debug("RAG检索", mode="hybrid", docs=len(retrieved))
+        else:
+            retrieved = await search_similar(search_query, top_k=k, collection_name=collection_name)
+            logger.debug("RAG检索", mode="vector", docs=len(retrieved))
+
+        # 重排序
+        if settings.RERANK_ENABLED and retrieved:
+            retrieved = rerank(search_query, retrieved, top_k=k)
 
     # 没有检索到任何文档 → 直接返回
     if not retrieved:
@@ -78,10 +116,6 @@ async def run_rag(
             answer="未找到与此问题相关的文档，无法回答。",
             retrieval_mode=retrieval_mode,
         )
-
-    # ── 第2步：重排序 ──
-    if settings.RERANK_ENABLED:
-        retrieved = rerank(question, retrieved, top_k=k)
 
     # ── 第3步：构建上下文 ──
     context = format_context(retrieved)
@@ -127,19 +161,38 @@ async def run_rag_stream(
     """
     k = top_k or settings.RETRIEVAL_TOP_K
 
-    # 检索
-    if retrieval_mode == RetrievalMode.HYBRID and settings.HYBRID_SEARCH_ENABLED:
-        retrieved = await hybrid_search(question, top_k=k, collection_name=collection_name)
+    # 查询改写
+    search_query = question
+    if settings.QUERY_REWRITE_ENABLED:
+        from langchain_core.output_parsers import StrOutputParser
+        llm = get_singleton_llm()
+        rewrite_chain = QUERY_REWRITE_PROMPT | llm | StrOutputParser()
+        search_query = await rewrite_chain.ainvoke({"chat_history": "", "question": question})
+        logger.debug("查询改写", original=question, rewritten=search_query)
+
+    # 检索（带低置信度二次检索）
+    if settings.RE_RETRIEVAL_ENABLED:
+        from app.engine.retrieval.re_retrieval import retrieve_with_fallback
+
+        re_result = await retrieve_with_fallback(
+            question=search_query,
+            collection_name=collection_name,
+            top_k=k,
+            retrieval_mode=retrieval_mode,
+        )
+        retrieved = re_result.documents
     else:
-        retrieved = await search_similar(question, top_k=k, collection_name=collection_name)
+        if retrieval_mode == RetrievalMode.HYBRID and settings.HYBRID_SEARCH_ENABLED:
+            retrieved = await hybrid_search(search_query, top_k=k, collection_name=collection_name)
+        else:
+            retrieved = await search_similar(search_query, top_k=k, collection_name=collection_name)
+
+        if settings.RERANK_ENABLED and retrieved:
+            retrieved = rerank(question, retrieved, top_k=k)
 
     if not retrieved:
         yield {"token": "未找到相关文档。", "done": True, "citations": []}
         return
-
-    # 重排序
-    if settings.RERANK_ENABLED:
-        retrieved = rerank(question, retrieved, top_k=k)
 
     # 构建上下文和消息
     context = format_context(retrieved)

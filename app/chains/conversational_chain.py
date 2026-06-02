@@ -25,8 +25,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.core.config import settings
 from app.core.logging_config import get_logger
 from app.engine.generation.citations import build_citations, format_context
-from app.engine.generation.llm import generate, generate_stream
-from app.engine.generation.prompts import CONVERSATIONAL_PROMPT
+from app.engine.generation.llm import generate, generate_stream, get_singleton_llm
+from app.engine.generation.prompts import CONVERSATIONAL_PROMPT, QUERY_REWRITE_PROMPT
 from app.engine.retrieval.hybrid import hybrid_search
 from app.engine.retrieval.reranker import rerank
 from app.engine.retrieval.vector_store import search_similar as vector_search
@@ -101,18 +101,48 @@ async def run_conversational_rag(
     """
     k = top_k or settings.RETRIEVAL_TOP_K
 
-    # ── 第1步：上下文感知检索 ──
+    # ── 第1步：上下文感知检索 + 查询改写 ──
     # 将上一轮助手的回答作为辅助上下文拼接到查询中
-    search_query = question
+    history_context = ""
     if history:
         last_turn = history[-1]
         if last_turn.role == "assistant":
-            search_query = f"{question}（上下文：{last_turn.content[:200]}）"
+            history_context = last_turn.content[:200]
 
-    if settings.HYBRID_SEARCH_ENABLED:
-        retrieved = await hybrid_search(search_query, top_k=k, collection_name=collection_name)
+    # 使用 LLM 将问题改写为适合检索的形式
+    search_query = question
+    if settings.QUERY_REWRITE_ENABLED:
+        from langchain_core.output_parsers import StrOutputParser
+        llm = get_singleton_llm()
+        rewrite_chain = QUERY_REWRITE_PROMPT | llm | StrOutputParser()
+        search_query = await rewrite_chain.ainvoke(
+            {"chat_history": history_context, "question": question}
+        )
+        logger.debug("查询改写", original=question, rewritten=search_query)
+    elif history_context:
+        # 如果未启用查询改写，回退到简单拼接
+        search_query = f"{question}（上下文：{history_context}）"
+
+    # 检索（带低置信度二次检索）
+    if settings.RE_RETRIEVAL_ENABLED:
+        from app.engine.retrieval.re_retrieval import retrieve_with_fallback
+        from app.schemas.query import RetrievalMode
+
+        re_result = await retrieve_with_fallback(
+            question=search_query,
+            collection_name=collection_name,
+            top_k=k,
+            retrieval_mode=RetrievalMode.HYBRID,
+        )
+        retrieved = re_result.documents
     else:
-        retrieved = await vector_search(search_query, top_k=k, collection_name=collection_name)
+        if settings.HYBRID_SEARCH_ENABLED:
+            retrieved = await hybrid_search(search_query, top_k=k, collection_name=collection_name)
+        else:
+            retrieved = await vector_search(search_query, top_k=k, collection_name=collection_name)
+
+        if settings.RERANK_ENABLED and retrieved:
+            retrieved = rerank(question, retrieved, top_k=k)
 
     if not retrieved:
         return ConversationalRAGResult(
@@ -120,10 +150,6 @@ async def run_conversational_rag(
             answer="我没有足够的上下文来回答这个问题。请换一种方式提问或提供更多信息。",
             history=history,
         )
-
-    # ── 第2步：重排序 ──
-    if settings.RERANK_ENABLED:
-        retrieved = rerank(question, retrieved, top_k=k)
 
     # ── 第3步和第4步：构建上下文 + Prompt ──
     context = format_context(retrieved)
@@ -168,23 +194,49 @@ async def run_conversational_rag_stream(
     """
     k = top_k or settings.RETRIEVAL_TOP_K
 
-    search_query = question
+    # 查询改写
+    history_context = ""
     if history:
         last_turn = history[-1]
         if last_turn.role == "assistant":
-            search_query = f"{question}（上下文：{last_turn.content[:200]}）"
+            history_context = last_turn.content[:200]
 
-    if settings.HYBRID_SEARCH_ENABLED:
-        retrieved = await hybrid_search(search_query, top_k=k, collection_name=collection_name)
+    search_query = question
+    if settings.QUERY_REWRITE_ENABLED:
+        from langchain_core.output_parsers import StrOutputParser
+        llm = get_singleton_llm()
+        rewrite_chain = QUERY_REWRITE_PROMPT | llm | StrOutputParser()
+        search_query = await rewrite_chain.ainvoke(
+            {"chat_history": history_context, "question": question}
+        )
+        logger.debug("查询改写", original=question, rewritten=search_query)
+    elif history_context:
+        search_query = f"{question}（上下文：{history_context}）"
+
+    # 检索（带低置信度二次检索）
+    if settings.RE_RETRIEVAL_ENABLED:
+        from app.engine.retrieval.re_retrieval import retrieve_with_fallback
+        from app.schemas.query import RetrievalMode
+
+        re_result = await retrieve_with_fallback(
+            question=search_query,
+            collection_name=collection_name,
+            top_k=k,
+            retrieval_mode=RetrievalMode.HYBRID,
+        )
+        retrieved = re_result.documents
     else:
-        retrieved = await vector_search(search_query, top_k=k, collection_name=collection_name)
+        if settings.HYBRID_SEARCH_ENABLED:
+            retrieved = await hybrid_search(search_query, top_k=k, collection_name=collection_name)
+        else:
+            retrieved = await vector_search(search_query, top_k=k, collection_name=collection_name)
+
+        if settings.RERANK_ENABLED and retrieved:
+            retrieved = rerank(question, retrieved, top_k=k)
 
     if not retrieved:
         yield {"token": "我没有足够的上下文来回答这个问题。", "done": True, "citations": []}
         return
-
-    if settings.RERANK_ENABLED:
-        retrieved = rerank(question, retrieved, top_k=k)
 
     context = format_context(retrieved)
     chat_history_str = format_history(history)

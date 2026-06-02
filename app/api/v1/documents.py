@@ -99,8 +99,8 @@ async def upload_document(
             collection_name=collection_name,
         )
         _documents[doc_id]["status"] = "completed"
-        _documents[doc_id]["chunk_count"] = result.chunks
-        logger.info("上传处理完成", doc_id=doc_id, chunks=result.chunks)
+        _documents[doc_id]["chunk_count"] = result.cleaned_chunks
+        logger.info("上传处理完成", doc_id=doc_id, chunks=result.cleaned_chunks)
     except Exception as exc:
         _documents[doc_id]["status"] = "failed"
         _documents[doc_id]["error_message"] = str(exc)

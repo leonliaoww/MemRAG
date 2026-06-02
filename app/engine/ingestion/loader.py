@@ -29,10 +29,31 @@ class PyMuPDFLoader:
 
     纯 Python 实现，无需 poppler 等外部依赖。
     支持提取文本、保留页面结构。
+    支持 OCR 处理扫描件（需要安装 pytesseract）。
     """
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, ocr_enabled: bool = True):
         self.file_path = file_path
+        self.ocr_enabled = ocr_enabled
+
+    def _extract_text_with_ocr(self, page) -> str:
+        """使用 OCR 从页面提取文本（处理扫描件）。"""
+        try:
+            from PIL import Image
+            import pytesseract
+        except ImportError:
+            logger.warning("OCR 不可用，需要安装 pytesseract 和 pillow")
+            return ""
+
+        # 将页面渲染为图像
+        pix = page.get_pixmap(dpi=300)
+        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+        # 使用 Tesseract 进行 OCR
+        # 添加中文支持
+        custom_config = r'--oem 3 --psm 6 -l chi_sim+eng'
+        text = pytesseract.image_to_string(img, config=custom_config)
+        return text
 
     def load(self) -> list[LCDocument]:
         """加载 PDF 并返回 Document 列表（每页一个）。"""
@@ -46,13 +67,23 @@ class PyMuPDFLoader:
         docs: list[LCDocument] = []
         with fitz.open(self.file_path) as pdf:
             for page_num, page in enumerate(pdf, start=1):
+                # 先尝试直接提取文本
                 text = page.get_text()
+
+                # 如果没有文本但有图像，且启用了OCR
+                if not text.strip() and self.ocr_enabled:
+                    images = page.get_images(full=True)
+                    if images:
+                        logger.info(f"页面 {page_num} 无文本，尝试 OCR")
+                        text = self._extract_text_with_ocr(page)
+
                 if text.strip():
                     doc = LCDocument(
                         page_content=text,
                         metadata={
                             "page": page_num,
                             "total_pages": len(pdf),
+                            "source_type": "ocr" if not page.get_text().strip() else "text",
                         },
                     )
                     docs.append(doc)

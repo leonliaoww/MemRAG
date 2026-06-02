@@ -9,6 +9,8 @@ from app.engine.retrieval.vector_store import (
 )
 from app.engine.retrieval.hybrid import hybrid_search
 from app.engine.retrieval.reranker import rerank
+from app.engine.retrieval.bm25_index import PersistentBM25Index, get_bm25_index
+from app.engine.retrieval.re_retrieval import ReRetrievalResult, retrieve_with_fallback
 
 __all__ = [
     "get_vector_store",

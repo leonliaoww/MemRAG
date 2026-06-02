@@ -20,29 +20,12 @@ from __future__ import annotations
 from collections import defaultdict
 
 from langchain_core.documents import Document as LCDocument
-from rank_bm25 import BM25Okapi
 
 from app.core.config import settings
 from app.core.logging_config import get_logger
 from app.engine.retrieval.vector_store import search_similar
 
 logger = get_logger(__name__)
-
-
-def _build_bm25_index(documents: list[LCDocument]) -> BM25Okapi:
-    """从文档列表构建内存 BM25 索引。
-
-    使用简单的空格分词（对小写文本）。
-    中文场景建议后续接入 jieba 分词以提升召回率。
-
-    Args:
-        documents: 待索引的文档列表。
-
-    Returns:
-        BM25Okapi 索引对象。
-    """
-    tokenized = [doc.page_content.lower().split() for doc in documents]
-    return BM25Okapi(tokenized)
 
 
 def reciprocal_rank_fusion(
@@ -96,23 +79,25 @@ async def hybrid_search(
     query: str,
     top_k: int | None = None,
     collection_name: str | None = None,
-    all_documents: list[LCDocument] | None = None,
 ) -> list[LCDocument]:
     """执行混合检索：向量 + BM25 → RRF 融合。
 
-    当 all_documents 为 None 时，BM25 路被跳过，
-    自动降级为纯向量检索（不报错）。
+    BM25 使用持久化索引（bm25_index.py），应用启动时自动加载，
+    文档摄取后自动更新，无需每次检索时重建。
+
+    当 BM25 索引为空时（首次使用、无文档），BM25 路自动跳过，
+    降级为纯向量检索。
 
     Args:
         query: 用户查询。
         top_k: 最终返回的文档数。
         collection_name: Chroma collection。
-        all_documents: 用于构建 BM25 索引的全量文档列表。
-                       为 None 时仅使用向量检索。
 
     Returns:
         RRF 融合后的排序文档列表。
     """
+    from app.engine.retrieval.bm25_index import get_bm25_index
+
     k = top_k or settings.RETRIEVAL_TOP_K
     fetch_k = k * 2  # 每路多取一些，给融合留余量
 
@@ -125,22 +110,17 @@ async def hybrid_search(
         for doc in vector_results_raw
     ]
 
-    # ── BM25 检索 ──
+    # ── BM25 检索（持久化索引）──
     bm25_results: list[tuple[LCDocument, float]] = []
-    if all_documents:
-        bm25 = _build_bm25_index(all_documents)
-        tokenized_query = query.lower().split()
-        bm25_scores = bm25.get_scores(tokenized_query)
-
-        # 取 BM25 分数最高的 fetch_k 个
-        scored = sorted(
-            zip(all_documents, bm25_scores),
-            key=lambda x: x[1],
-            reverse=True,
-        )[:fetch_k]
-        bm25_results = scored
-    else:
-        logger.debug("跳过 BM25", reason="未提供全量文档列表")
+    try:
+        bm25_index = get_bm25_index(collection_name)
+        if bm25_index.doc_count > 0:
+            bm25_raw = bm25_index.search(query, top_k=fetch_k)
+            bm25_results = [(doc, score) for doc, score in bm25_raw]
+        else:
+            logger.debug("BM25 索引为空，跳过", collection=collection_name)
+    except Exception as exc:
+        logger.warning("BM25 检索失败，降级为纯向量检索", error=str(exc))
 
     # ── RRF 融合 ──
     fused = reciprocal_rank_fusion(vector_results, bm25_results)

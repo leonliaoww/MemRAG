@@ -87,12 +87,42 @@ class Settings(BaseSettings):
     # ── 检索配置 ────────────────────────────────────────
     RETRIEVAL_TOP_K: int = 5
     HYBRID_SEARCH_ENABLED: bool = True
+    QUERY_REWRITE_ENABLED: bool = True
+    """是否启用查询改写。将用户问题改写为更适合检索的形式，
+    特别是处理对话中的代词指代和省略现象。"""
     RERANK_ENABLED: bool = True
     RERANK_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    # ── 低置信度二次检索 ────────────────────────────
+    RE_RETRIEVAL_ENABLED: bool = True
+    """是否启用低置信度二次检索。检索结果 top-1 分数低于阈值时，
+    自动改写查询并二次检索，合并后去重。"""
+    LOW_CONFIDENCE_THRESHOLD: float = 0.3
+    """置信度阈值（0~1）。top-1 的 cross_encoder_score 低于此值时触发二次检索。"""
+    RE_RETRIEVAL_MAX_ROUNDS: int = 2
+    """最大检索轮数（含首次）。超过后不再重试，标记降级直接生成。"""
     """重排序模型：HuggingFace 模型名（联网下载）或本地路径（离线加载）。
     当 RERANK_MODEL_PATH 不为空时，优先从本地路径加载。"""
     RERANK_MODEL_PATH: str = "./models/reranker/ms-marco-MiniLM-L-6-v2"
     """重排序模型本地路径。设置后不从 HuggingFace 下载，直接从本地目录加载。"""
+
+    # ── OCR 与 VLM 视觉理解 ────────────────────────────
+    OCR_ENABLED: bool = True
+    """是否启用 OCR 提取图片内嵌文字（需系统安装 tesseract）。"""
+    VLM_ENABLED: bool = True
+    """是否启用 VLM 生成图片语义描述（需配置 DASHSCOPE_API_KEY）。
+    关闭后仅使用 OCR，不影响检索功能。"""
+    VLM_MODEL: str = "qwen-vl-plus"
+    """VLM 模型：qwen-vl-plus（性价比）/ qwen-vl-max（最强理解力）。"""
+
+    # ── Chunk 清洗配置 ─────────────────────────────────
+    CHUNK_MIN_LENGTH: int = 50
+    """chunk 最小字符数：低于此值的 chunk 在清洗阶段被丢弃。"""
+    CHUNK_QUALITY_THRESHOLD: float = 0.15
+    """chunk 质量分最低阈值（0~1）：低于此值的 chunk 被丢弃。"""
+
+    # ── BM25 索引配置 ─────────────────────────────────
+    BM25_INDEX_DIR: str = "./bm25_index"
+    """BM25 索引持久化目录。"""
 
     # ── 数据库（可选的关系型存储）───────────────────────
     DATABASE_URL: str = ""
