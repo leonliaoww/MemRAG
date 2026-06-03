@@ -10,15 +10,15 @@
 │  FastAPI REST + SSE 流式输出      │  ← API 层
 ├──────────────────────────────────┤
 │  LangChain RAG Chains            │  ← 编排层
-│  （Phase 3 迁移至 LangGraph）      │
-├──────────┬──────────┬───────────┤
-│ 文档摄取  │ 混合检索  │ 答案生成   │  ← 流水线层
-├──────────┴──────────┴───────────┤
-│ Chroma 向量库 · Redis 缓存 · OpenAI│  ← 基础设施层
+│                                  │
+├──────────┬──────────┬────────────┤
+│ 文档摄取  │ 混合检索  │ 答案生成    │  ← 流水线层
+├──────────┴──────────┴────────────┤
+│ Chroma 向量库 · BM25 索引 · OpenAI │  ← 基础设施层
 └──────────────────────────────────┘
 ```
 
-**数据流：** 用户问题 → 向量/BM25 混合检索 → CrossEncoder 重排序 → 上下文注入 Prompt → LLM 生成答案 → 引用追踪
+**数据流：** 用户问题 → 查询改写 → 向量/BM25 混合检索（带低置信度二次检索） → CrossEncoder 重排序 → 上下文注入 Prompt → LLM 生成答案 → 引用追踪
 
 ## 快速开始
 
@@ -32,7 +32,7 @@
 
 ```bash
 # 进入项目目录
-cd rag-enterprise
+cd MemRAG
 
 # 复制环境配置
 cp .env.example .env
@@ -43,19 +43,6 @@ python -m venv .venv
 .venv\Scripts\pip install -e ".[dev]"    # Windows
 # 或 source .venv/bin/pip install -e ".[dev]"  # macOS/Linux
 
-# 启动基础设施（Chroma + Redis）
-make docker-up
-```
-
-### 2. 启动服务
-
-```bash
-# 开发模式（热重载，自动启用 /docs 接口文档）
-make dev
-
-# 生产模式
-make run
-```
 
 浏览器打开 **http://localhost:8000/docs** 查看交互式 API 文档。
 
@@ -111,7 +98,7 @@ curl -X POST http://localhost:8000/api/v1/queries/chat \
 ## 项目结构
 
 ```
-rag-enterprise/
+MemRAG/
 ├── app/
 │   ├── main.py                       # FastAPI 应用入口（lifespan/CORS/路由注册）
 │   ├── api/
@@ -132,13 +119,19 @@ rag-enterprise/
 │   │   └── query.py                  # 问答请求/响应/引用 Schema
 │   ├── engine/                       # 核心引擎（项目核心）
 │   │   ├── ingestion/                # 文档摄取
-│   │   │   ├── loader.py             # 加载器工厂（6 种格式）
+│   │   │   ├── loader.py             # 加载器工厂（6 种格式，支持 PyMuPDF）
 │   │   │   ├── splitter.py           # 智能切分（含中文分隔符）
-│   │   │   └── embedder.py           # OpenAI embeddings 封装
+│   │   │   ├── embedder.py           # OpenAI embeddings 封装
+│   │   │   ├── parser.py             # PDF 解析器（hi_res 策略）
+│   │   │   ├── cleaner.py            # 文本清洗工具
+│   │   │   ├── metadata.py           # 元数据提取
+│   │   │   └── vision.py             # VLM 视觉处理（图表理解）
 │   │   ├── retrieval/                # 检索引擎
 │   │   │   ├── vector_store.py       # Chroma 向量库封装（collection 管理）
 │   │   │   ├── hybrid.py             # 混合检索（向量 + BM25 + RRF 融合）
-│   │   │   └── reranker.py           # CrossEncoder 重排序
+│   │   │   ├── reranker.py           # CrossEncoder 重排序（支持离线模型）
+│   │   │   ├── bm25_index.py         # BM25 关键词索引
+│   │   │   └── re_retrieval.py       # 低置信度二次检索
 │   │   └── generation/               # 生成引擎
 │   │       ├── llm.py                # LLM 适配器（普通+流式，可替换供应商）
 │   │       ├── prompts.py            # Prompt 模板库（RAG/对话/查询改写/评分）
@@ -152,67 +145,12 @@ rag-enterprise/
 │   ├── middleware/
 │   │   └── error_handler.py          # 全局异常捕获 → 标准化错误响应
 │   └── tasks/                        # Celery 异步任务预留目录
-├── tests/
-│   ├── test_api.py                   # API 层冒烟测试
-│   └── test_ingestion.py             # 摄取管道集成测试
+├── models/                           # 离线模型目录（重排序模型等）
+├── chromadb/                         # Chroma 向量数据库持久化目录
+├── test_pymupdf_loader.py            # PDF 加载器测试脚本
 ├── docker-compose.yml                # Chroma + Redis 一键启动
 ├── Dockerfile                        # 应用容器镜像
 ├── Makefile                          # 常用命令快捷方式
 ├── pyproject.toml                    # 项目依赖与工具配置
 └── .env.example                      # 环境变量模板
-```
-
-## 版本路线
-
-### ✅ Phase 1 — MVP（当前版本）
-
-- [x] 多格式文档摄取（PDF / DOCX / TXT / Markdown / HTML / CSV）
-- [x] 向量检索 + 混合检索（BM25 + RRF 融合）+ CrossEncoder 重排序
-- [x] 标准 RAG 链 + 多轮对话链
-- [x] SSE 流式输出（逐 token 推送）
-- [x] 来源引用追踪（`[文件名]` 标签 → 结构化 SourceCitation）
-- [x] 全中文代码注释 + 文档
-
-### 🔲 Phase 2 — 企业特性
-
-- [ ] 认证与授权（API Key + JWT）
-- [ ] 多租户隔离（Chroma collection 级别）
-- [ ] Redis 缓存（查询去重 + 结果缓存）
-- [ ] Celery 异步文档处理（大文件上传不阻塞）
-- [ ] Prometheus 指标 + Grafana 监控面板
-
-### 🔲 Phase 3 — LangGraph 升级
-
-- [ ] Agentic RAG：自适应检索（判断是否需要检索 → 改写查询 → 选择策略）
-- [ ] Self-RAG：自反思链路（检索 → 评分相关性 → 决定是否补充检索）
-- [ ] 多跳推理：复杂问题拆解为多步检索子问题
-- [ ] 查询改写节点（指代消解 + 上下文补全）
-
-## 配置参考
-
-所有配置通过 `.env` 文件或环境变量设置：
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `OPENAI_API_KEY` | *必填* | OpenAI API 密钥 |
-| `OPENAI_MODEL` | `gpt-4o-mini` | 对话模型 |
-| `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | 嵌入模型 |
-| `CHROMA_HOST` | `localhost` | Chroma 服务地址 |
-| `CHROMA_PORT` | `8001` | Chroma 端口 |
-| `CHUNK_SIZE` | `1000` | 文档切分大小（字符数） |
-| `CHUNK_OVERLAP` | `200` | 相邻 chunk 重叠字符数 |
-| `RETRIEVAL_TOP_K` | `5` | 默认召回文档数 |
-| `HYBRID_SEARCH_ENABLED` | `true` | 启用混合检索 |
-| `RERANK_ENABLED` | `true` | 启用 CrossEncoder 重排序 |
-| `MAX_UPLOAD_SIZE_MB` | `50` | 单文件最大上传大小 |
-
-## 开发指南
-
-```bash
-make test        # 运行测试
-make lint        # Ruff 代码检查
-make format      # Ruff 自动格式化
-make test-cov    # 测试覆盖率报告
-make typecheck   # Mypy 静态类型检查
-make clean       # 清理构建产物
 ```

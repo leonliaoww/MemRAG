@@ -7,3 +7,8 @@
 
 # 本地模型文件
 /models/
+
+.reasonix/
+tests/
+chroma_data/
+bm25_index/
